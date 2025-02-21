@@ -1,83 +1,89 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+// server/index.ts
+import express from 'express';
+import { createServer as createViteServer } from 'vite';
+import { resolve } from 'path';
+import type { ViteDevServer } from 'vite';
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+async function createServer() {
+  const app = express();
+  const isProduction = process.env.NODE_ENV === 'production';
+  const port = process.env.PORT || 3000;
 
-// Add CORS headers
-app.use((req, res, next) => {
-  // Allow requests from the Vercel deployment domain
-  const allowedOrigins = ['http://localhost:5000', 'https://qualifierdwarkesh.vercel.app'];
-  const origin = req.headers.origin;
+  let vite: ViteDevServer | null = null;
 
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  // Configure Vite in development mode
+  if (!isProduction) {
+    vite = await createServer({
+      server: { 
+        middlewareMode: true,
+        hmr: { 
+          server: app.listen(port, () => {
+            console.log(`Dev server running on http://localhost:${port}`);
+          })
+        },
+        allowedHosts: 'all' // Correct configuration
+      },
+      appType: 'spa'
+    });
+
+    // Use Vite's middleware
+    app.use(vite.middlewares);
+  } else {
+    // Production: Serve static assets
+    app.use(express.static(resolve(__dirname, '../dist/public'), {
+      index: false // Let Express handle index.html through routes
+    }));
+
+    // Serve static files from client build
+    app.use('/assets', express.static(resolve(__dirname, '../dist/public/assets')));
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // API Routes
+  app.get('/api/data', (req, res) => {
+    res.json({ message: 'Hello from Express!' });
+  });
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api") || path.startsWith("/bfhl")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+  // Handle SPA client routing
+  app.get('*', async (req, res) => {
+    try {
+      const url = req.originalUrl;
+      
+      // Development: Use Vite's HTML transformation
+      if (vite) {
+        const template = await vite.transformIndexHtml(url, 
+          `<!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>Vite + Express</title>
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="/src/main.tsx"></script>
+            </body>
+          </html>`
+        );
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } else {
+        // Production: Serve built index.html
+        res.sendFile(resolve(__dirname, '../dist/public/index.html'));
       }
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+    } catch (e) {
+      if (e instanceof Error) {
+        vite?.ssrFixStacktrace(e);
+        console.error(e.stack);
+        res.status(500).end(e.stack);
       }
-      log(logLine);
     }
   });
 
-  next();
-});
-
-(async () => {
-  const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Server error:', err);
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
-
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
-    await setupVite(app, server);
-  }
-
-  // Start server only in development
-  if (process.env.NODE_ENV !== "production") {
-    const port = process.env.PORT || 5000;
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`serving on port ${port}`);
+  // Start production server
+  if (isProduction) {
+    app.listen(port, () => {
+      console.log(`Production server running on port ${port}`);
     });
   }
-})();
+}
 
-// Export for Vercel serverless function
-export default app;
+createServer();
