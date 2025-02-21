@@ -6,10 +6,16 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add CORS headers for Vercel deployment
+// Add CORS headers
 app.use((req, res, next) => {
-  // Allow requests from any origin in development
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Allow requests from the Vercel deployment domain
+  const allowedOrigins = ['http://localhost:5000', 'https://qualifierdwarkesh.vercel.app'];
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
