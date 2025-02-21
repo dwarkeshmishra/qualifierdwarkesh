@@ -5,7 +5,8 @@ import { arrayInputSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express) {
-  app.post("/api/bfhl", async (req, res) => {
+  // Handle both /bfhl and /api/bfhl routes
+  const handleBfhlRoute = async (req: any, res: any) => {
     try {
       const { data } = arrayInputSchema.parse(req.body);
       const result = await storage.processArray(data);
@@ -17,24 +18,32 @@ export async function registerRoutes(app: Express) {
           message: "Invalid input format"
         });
       } else {
+        console.error('Error processing request:', error);
         res.status(500).json({
           is_success: false,
           message: "Internal server error"
         });
       }
     }
-  });
+  };
 
-  app.get("/api/bfhl", async (_req, res) => {
+  app.post("/bfhl", handleBfhlRoute);
+  app.post("/api/bfhl", handleBfhlRoute);
+
+  const handleGetBfhl = async (_req: any, res: any) => {
     try {
       const code = await storage.getOperationCode();
       res.json({ operation_code: code });
     } catch (error) {
+      console.error('Error getting operation code:', error);
       res.status(500).json({
         message: "Internal server error"
       });
     }
-  });
+  };
+
+  app.get("/bfhl", handleGetBfhl);
+  app.get("/api/bfhl", handleGetBfhl);
 
   return createServer(app);
 }
