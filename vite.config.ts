@@ -13,11 +13,10 @@ export default defineConfig({
     react(),
     runtimeErrorOverlay(),
     themePlugin(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
       ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
+          import("@replit/vite-plugin-cartographer").then((m) =>
+            m.cartographer()
           ),
         ]
       : []),
@@ -29,8 +28,20 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, "client"),
+  server: {
+    allowedHosts: 'all',
+    hmr: process.env.NODE_ENV === 'development' ? {
+      protocol: 'ws',
+      host: 'localhost'
+    } : undefined
+  },
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
-  },
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "client/index.html")
+      }
+    }
+  }
 });
