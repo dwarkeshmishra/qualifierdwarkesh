@@ -1,30 +1,32 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "server/index.ts",
-        "use": "@vercel/node"
-      },
-      {
-        "src": "package.json",
-        "use": "@vercel/static-build",
-        "config": {
-          "distDir": "dist/public"
-        }
+  "version": 2,
+  "builds": [
+    {
+      "src": "server/index.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist/public"
       }
-    ],
-    "routes": [
-      {
-        "src": "/bfhl",
-        "dest": "server/index.ts"
-      },
-      {
-        "src": "/api/(.*)",
-        "dest": "server/index.ts"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "dist/public/$1"
-      }
-    ]
-  }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/bfhl",
+      "methods": ["GET", "POST", "OPTIONS"],
+      "dest": "server/index.ts"
+    },
+    {
+      "src": "/api/(.*)",
+      "methods": ["GET", "POST", "OPTIONS"],
+      "dest": "server/index.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "dist/public/$1"
+    }
+  ]
+}
