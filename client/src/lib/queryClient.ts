@@ -1,8 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Use the correct Vercel deployment URL
+// Use the correct Vercel deployment URL in production
 const API_BASE_URL = import.meta.env.PROD
-  ? 'https://qualifierdwarkesh.vercel.app'
+  ? window.location.origin // This will use the same origin as the frontend
   : '';
 
 async function throwIfResNotOk(res: Response) {
